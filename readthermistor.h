@@ -54,3 +54,4 @@ float readThermistor(uint8_t analogPin)
   Serial.println(" *C");
   return steinhart;
 }
+

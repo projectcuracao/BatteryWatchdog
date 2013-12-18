@@ -15,63 +15,33 @@ void printStateVariables()
  Serial.print(requestFromPi);
  Serial.print("-WD=");
  Serial.print(watchDogState);
+Serial.print("-WDE=");
+ Serial.print(enableWatchDog);
  Serial.print("-Pi="); 
  Serial.print(isPiOn); 
- Serial.println("");
-  
-}
-
-
-void return2Digits(char returnString[], char *buffer, int digits)
-{
-  if(digits < 10)
-    sprintf(returnString,"0%i", digits);
-  else
-    sprintf(returnString,"%i", digits);
-    
-  strcpy(returnString, buffer);
-    
-
-}
-
-void buildTimeString(char returnString[], char *buffer, DateTime convertTime)
-{
-  
-   
-    
-    char myBuffer[5];
-    sprintf(myBuffer,"%i-", convertTime.year());
-    strcat(returnString, myBuffer);
-
-    return2Digits(myBuffer, myBuffer, convertTime.month());
-    strcat(returnString, myBuffer);
-    strcat(returnString, "-");
+ Serial.print("-iPiS="); 
+ Serial.print(isPiSignaledWD); 
+ Serial.print("-WAS=");
+ Serial.print(WAState);
+ Serial.print("-LITP=");
+ Serial.print(lastInterruptToPi);
+                 
  
-    return2Digits(myBuffer, myBuffer, convertTime.day());
-    strcat(returnString, myBuffer);
-    strcat(returnString, " ");
-    
-    return2Digits(myBuffer, myBuffer, convertTime.hour());
-    strcat(returnString, myBuffer);
-    strcat(returnString, ":");
-    
-    return2Digits(myBuffer, myBuffer, convertTime.minute());
-    strcat(returnString, myBuffer);
-    strcat(returnString, ":");
-    
-    return2Digits(myBuffer, myBuffer, convertTime.second());
-    strcat(returnString, myBuffer);
-  
-  
-  
+ Serial.println("");
+ Serial.print("Time to WD:");
+ if (enableWatchDog == false)
+   Serial.println("WD Disabled");
+ else
+ Serial.println(watchDogTime - RTC.get());
 }
+
 
 void readStateValues()
 {
     Adafruit_INA219 ina219x40(0x40);
   
-  // state2 reads all I2C data
-  Serial.println("Entering STATE2");
+  // reads all I2C data
+  Serial.println("Entering readStateValues");
   
   // USB Arduino Power
   ina219x40.begin();
@@ -173,23 +143,10 @@ int readNextLineFromPi(char returnString[], char *buffer)
      int byteCount;
        myBuffer[0] = '\0';
      
-       char timeNow[20];
-       timeNow[0] = '\0';
-       buildTimeString(timeNow, timeNow, RTC.now());
-    
-       Serial.print("2-0-");
-       Serial.print(timeNow);
-       Serial.println();
+     
 
        byteCount = Serial2.readBytesUntil('\n', myBuffer, 200);
-       
-      
-       timeNow[0] = '\0';
-       buildTimeString(timeNow, timeNow, RTC.now());
-    
-       Serial.print("2-1-");
-       Serial.print(timeNow);
-       Serial.println();
+
 
      if (byteCount > 0)
      {
@@ -211,12 +168,7 @@ int readNextLineFromPi(char returnString[], char *buffer)
      }
      
 
-       timeNow[0] = '\0';
-       buildTimeString(timeNow, timeNow, RTC.now());
-    
-       Serial.print("2-2-");
-       Serial.print(timeNow);
-       Serial.println();
+
 
        // check time out
       if (millis() > (startTime + timeout))
@@ -248,11 +200,14 @@ int readNextLineFromPi(char returnString[], char *buffer)
 int state0(int state)
 {
    Serial.println("Entering STATE0");
-    DateTime now = RTC.now();
+   
+    tmElements_t tm;
+    RTC.read(tm);
+
 
     char timeNow[20];
     timeNow[0] = '\0';
-    buildTimeString(timeNow, timeNow, now);
+    buildTimeString(timeNow, timeNow, tm);
     
     Serial.print(timeNow);
     Serial.println();
@@ -261,7 +216,9 @@ int state0(int state)
     Serial.print("PiBatteryVoltage =");
     Serial.println(getAnalogVoltage(PiBatteryVoltageChannel));
     
- 
+    displayLog();
+    
+    writeLogEntry( 1, 2, 3);
  
  if (requestFromPi == true)
  {  
@@ -269,6 +226,74 @@ int state0(int state)
    digitalWrite(indicatorLED, false);  
    return STATE1;
  }
+ 
+
+ #ifdef USEWATCHDOG
+  if ((RTC.get() > watchDogTime ) && (enableWatchDog == true))
+  {
+    // we need to reboot machine
+    
+          if (watchDogState == true)
+          {
+            
+              // try restart, then power cycle if no response
+              watchDogState = false;
+              WAState = REBOOT;
+              lastInterruptToPi = REBOOT;
+              Serial.println("---->try reboot, then power cycle if no response");
+              doInterruptPi();
+              // give us ten minutes to wait
+              Serial.println("---->giving five minutes for pi to reboot and send watchdog");
+              watchDogTime = watchDogTime + 300L;
+            }
+          else
+          {
+              // already rebooted
+              Serial.println("---->watchdog has already expired or Pi is being turned off");
+              // last Interrupt to PI was reboot or shutdown and we havin't started watchdog yet, so power cycle
+              // if was reboot, then power cycle Pi
+              // if was shutdown, turn it off and disable watchdog until power cycle on
+              
+              if (lastInterruptToPi == REBOOT)
+              {
+                Serial.println("Reboot-POWER CYCLE PI");
+                turnPiOff();
+                delay(10000);
+                turnPiOn();
+                lastInterruptToPi = NOINTERRUPT;
+                WAState = NOINTERRUPT;
+                watchDogState = true;
+                enableWatchDog = true;
+                watchDogTime = RTC.get() + watchDogTimeIncrement;
+              }
+              if (lastInterruptToPi == SHUTDOWN)
+              {
+                Serial.println("Shutdown-TURN PI OFF");
+                turnPiOff();
+                lastInterruptToPi = NOINTERRUPT;
+                WAState = NOINTERRUPT;
+                watchDogState = true;
+                enableWatchDog = false;
+                watchDogTime = RTC.get() + watchDogTimeIncrement;
+              }
+  
+             
+          }
+
+  }
+  else
+  {
+    // no watch dog expiration
+    if ((WAState == REBOOT)  || (WAState == SHUTDOWN))
+        Serial.println("---->watchdog expired.  Waiting to power cycle");
+      else
+        Serial.println("---->no watchdog expiration");
+    
+  }
+#else
+  Serial.println("---->WATCHDOG DISABLED");
+#endif
+
    
    return STATE0; 
 }
@@ -294,7 +319,10 @@ int state1(int state)
    Serial2.begin(9600);
    char buffer[50];
 
-   
+      
+    tmElements_t tm;
+    RTC.read(tm);
+
    // timeout value  msec
    long timeout = 10000;
    long startTime = millis();
@@ -304,23 +332,10 @@ int state1(int state)
        int byteCount;
        buffer[0] = '\0';
      
-       char timeNow[20];
-       timeNow[0] = '\0';
-       buildTimeString(timeNow, timeNow, RTC.now());
-    
-       Serial.print("0-");
-       Serial.print(timeNow);
-       Serial.println();
-
+  
+ 
        byteCount = Serial2.readBytesUntil('\n', buffer, 50);
        
-      
-       timeNow[0] = '\0';
-       buildTimeString(timeNow, timeNow, RTC.now());
-    
-       Serial.print("1-");
-       Serial.print(timeNow);
-       Serial.println();
 
      if (byteCount > 0)
      {
@@ -408,13 +423,18 @@ int state1(int state)
            // last reboot
            strcat(returnString, ",'");
          
-           char myBootDate[20];
+           char myBootDate[25];
            myBootDate[0] = '\0';
-           buildTimeString(myBootDate, myBootDate, lastBoot);
+           breakTime(lastBoot, tm);
+           buildTimeString(myBootDate, myBootDate, tm);
       
            strcat(returnString, myBootDate);
            strcat(returnString, "',");
-           
+    
+           Serial.print("LB:");
+           Serial.print(myBootDate);
+           Serial.println();
+
   
 
            
@@ -459,6 +479,42 @@ int state1(int state)
            
          }
          
+         if (strcmp(buffer, "WA")  == 0)   // Why did you interrupt me?
+         {
+            char returnString[200];
+           returnString[0] = '\0';
+           
+           sprintf(returnString, "%i", WAState);
+           Serial.print("WAState=");
+           Serial.print(WAState);
+           
+  
+
+           Serial2.write(returnString);
+           
+         }
+         
+         if (strcmp(buffer, "WD")  == 0)   // Watchdog
+         {
+
+
+           Serial2.write("OK\n");
+           
+          watchDogState= true; // true - ok, false reboot
+          watchDogTime=RTC.get() + watchDogTimeIncrement;
+           
+         }
+         
+         if (strcmp(buffer, "AWA")  == 0)   // Acknowledge the WA command
+         {
+            Serial2.write("OK\n");
+            WAState = NOINTERRUPT;
+            
+            digitalWrite(interruptPi, false); // make sure the line is low now after acknowlegement
+   
+           
+         }
+         
          
          
          if (strcmp(buffer, "ST")  == 0)   // Set UTC time on Arduino
@@ -491,8 +547,16 @@ int state1(int state)
                      Serial.print(returnString);
                      Serial.print(" ");
                      Serial.println(returnString2);
+                     tmElements_t tm;
                      
-                     RTC.adjust(DateTime(returnString, returnString2));
+                    if (getDate(returnString, tm) && getTime(returnString2, tm)) {
+
+                      // and configure the RTC with this info
+                      RTC.write(tm);
+                   
+                     }
+  
+
        
                      returnString[0] ='\0';
                      returnString2[0] ='\0';
@@ -542,19 +606,33 @@ int state1(int state)
             
 
             Serial.println(subStr(returnString, ",", 1));
+            PI_BATTERY_SHUTDOWN_THRESHOLD = atof(subStr(returnString, ",", 1));
             Serial.println(subStr(returnString, ",", 2));
+            PI_BATTERY_STARTUP_THRESHOLD = atof(subStr(returnString, ",", 2)); 
             Serial.println(subStr(returnString, ",", 3));
-
+            INSIDE_TEMPERATURE_PI_SHUTDOWN_THRESHOLD = atof(subStr(returnString, ",", 3)); 
             Serial.println(subStr(returnString, ",", 4));
+            INSIDE_TEMPERATURE_PI_STARTUP_THRESHOLD = atof(subStr(returnString, ",", 4)); 
             Serial.println(subStr(returnString, ",", 5));
+            INSIDE_HUMIDITY_PI_SHUTDOWN_THRESHOLD = atof(subStr(returnString, ",", 5)); 
             Serial.println(subStr(returnString, ",", 6));
-        
+            INSIDE_HUMIDITY_PI_STARTUP_THRESHOLD = atof(subStr(returnString, ",", 6)); 
+            
             Serial.println(subStr(returnString, ",", 7));
+            strcpy(subStr(returnString, ",", 7), PI_START_TIME);
             Serial.println(subStr(returnString, ",", 8));
-            Serial.println(subStr(returnString, ",", 9));
-        
-            Serial.println(subStr(returnString, ",", 10));
+            strcpy(subStr(returnString, ",", 8), PI_SHUTDOWN_TIME);
 
+            Serial.println(subStr(returnString, ",", 9));
+            PI_MIDNIGHT_WAKEUP_SECONDS_LENGTH = atof(subStr(returnString, ",", 9)); 
+            Serial.println(subStr(returnString, ",", 10));
+            PI_MIDNIGHT_WAKEUP_THRESHOLD  = atof(subStr(returnString, ",", 10));
+           
+            // Ok based on these constants, let's update the alarms
+ 
+ 
+            setAlarmTimes();  // set up my alarms
+            
         
 
            }
@@ -574,13 +652,7 @@ int state1(int state)
      else
      {
        
-       char timeNow[20];
-       timeNow[0] = '\0';
-       buildTimeString(timeNow, timeNow, RTC.now());
-    
-       Serial.print("2-");
-       Serial.print(timeNow);
-       Serial.println();
+
 
        // check time out
       if (millis() > (startTime + timeout))
@@ -608,6 +680,16 @@ int state1(int state)
 
 
 
+int state2(int state)
+{
+
+  
+  
+   return STATE0; 
+}
+
+
+
 int state3(int state)
 {
 
@@ -615,5 +697,6 @@ int state3(int state)
   
    return STATE0; 
 }
+
 
 

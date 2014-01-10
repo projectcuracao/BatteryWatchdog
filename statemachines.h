@@ -18,13 +18,17 @@ void printStateVariables()
 Serial.print("-WDE=");
  Serial.print(enableWatchDog);
  Serial.print("-Pi="); 
- Serial.print(isPiOn); 
+ Serial.print(isPiOn);
+Serial.print("-SBPiOn="); 
+ Serial.print(shouldPiBeOn);  
  Serial.print("-iPiS="); 
  Serial.print(isPiSignaledWD); 
  Serial.print("-WAS=");
  Serial.print(WAState);
  Serial.print("-LITP=");
  Serial.print(lastInterruptToPi);
+ Serial.print("-PiBV=");
+ Serial.print(PiBatteryVoltage);
                  
  
  Serial.println("");
@@ -129,7 +133,7 @@ void readStateValues()
 #define OK 0
 #define TIMEOUT 1
 
-int readNextLineFromPi(char returnString[], char *buffer)
+int readNextLineFromPi(char returnString[], char *buffer2)
 {
   
      
@@ -214,17 +218,88 @@ int state0(int state)
     Serial.print("FreeMemory=");
     Serial.println(freeMemory());
     Serial.print("PiBatteryVoltage =");
-    Serial.println(getAnalogVoltage(PiBatteryVoltageChannel));
+    float temp;
+    delay(10);
+    temp = getAnalogVoltage(PiBatteryVoltageChannel);
+    Serial.println(temp);
+    delay(10);
+    delay(100);
+    Serial.println(PiBatteryVoltage);
+    Serial.print("Instant PiBatteryVoltage=");
+    temp = getAnalogVoltage(PiBatteryVoltageChannel);
+    Serial.println(temp);
     
-    displayLog();
+    PiBatteryVoltage = rollingAverage(runningPiVoltage, CNT, temp);
+
+    // displayLog();
     
-    writeLogEntry( 1, 2, 3);
+    // multiple channel reading (from http://forum.arduino.cc/index.php?topic=54976.0)
+    setpiVoltageStartupThresholdsOK(PiBatteryVoltage);
+    delay(10);
+    UnregulatedWindVoltage = getAnalogVoltage(UnregulatedWindVoltageChannel);
+    delay(10);
+    UnregulatedWindVoltage = getAnalogVoltage(UnregulatedWindVoltageChannel)/UnregulatedWindVoltageMultiplier;
+    delay(10);
+    RegulatedWindVoltage = getAnalogVoltage(RegulatedWindVoltageChannel);
+    delay(10);
+    RegulatedWindVoltage = getAnalogVoltage(RegulatedWindVoltageChannel)/RegulatedWindVoltageMultiplier;
+    delay(10);
+    PiSolarVoltage = getAnalogVoltage(PiSolarVoltageChannel);
+    delay(10);
+    PiSolarVoltage = getAnalogVoltage(PiSolarVoltageChannel)/PiSolarVoltageMultiplier;
+    delay(10);
+
+    
+    Serial.print("Instant UnregulatedWindVoltage=");
+    Serial.println(UnregulatedWindVoltage);
+    Serial.print("Instant RegulatedWindVoltage=");
+    Serial.println(RegulatedWindVoltage);
+    Serial.print("Instant PiSolarVoltage=");
+    Serial.println(PiSolarVoltage);
+
+
+
  
  if (requestFromPi == true)
  {  
    requestFromPi = false;
    digitalWrite(indicatorLED, false);  
    return STATE1;
+ }
+ 
+ // if the shutdown threshold has been hit, force watchdog to fire and shutdown orderly
+ 
+ // check for battery voltage shutdown
+ if ((piVoltageShutdownThresholdOK == false) && (isPiOn == true))
+ {
+      
+      Serial.println("Shutdown Pi from battery low");
+      piVoltageShutdownTime = RTC.get() % 86400 + 200L;  // set alarm two hundred seconds in the future
+      
+      // tell pi to shutdown
+      watchDogState = false;
+      WAState = SHUTDOWN;
+      lastInterruptToPi = SHUTDOWN;
+      Serial.println("---->try shutdown, then Turn Off");
+      doInterruptPi();
+      
+      
+      writeLogEntry( LOGINFO, LOGPiOffLowVoltage, 1);
+         
+ }
+ 
+ // check to see if pi should be on and turn on if voltage is OK (recovery during day from low battery)
+ 
+ if ((shouldPiBeOn == true) && (isPiOn == false))
+ {
+   // check for recovery voltage
+   if (piVoltageStartupThresholdOK == true)
+   {
+      Serial.println("---->Voltage Recovery, Turn On");
+      PiBoot();
+     writeLogEntry( LOGINFO, LOGPiOnVoltageRecovery, 1);
+   }
+   
  }
  
 
@@ -238,6 +313,8 @@ int state0(int state)
             
               // try restart, then power cycle if no response
               watchDogState = false;
+
+              writeLogEntry( LOGINFO, LOGWatchDogTriggered, 1); 
               WAState = REBOOT;
               lastInterruptToPi = REBOOT;
               Serial.println("---->try reboot, then power cycle if no response");
@@ -257,6 +334,7 @@ int state0(int state)
               if (lastInterruptToPi == REBOOT)
               {
                 Serial.println("Reboot-POWER CYCLE PI");
+               
                 turnPiOff();
                 delay(10000);
                 turnPiOn();
@@ -285,7 +363,11 @@ int state0(int state)
   {
     // no watch dog expiration
     if ((WAState == REBOOT)  || (WAState == SHUTDOWN))
-        Serial.println("---->watchdog expired.  Waiting to power cycle");
+    {
+        Serial.print("---->watchdog expired or disabled. enableWatchDog =");
+        Serial.println(enableWatchDog);
+        Serial.println("  Waiting to power cycle");
+    }
       else
         Serial.println("---->no watchdog expiration");
     
@@ -317,7 +399,7 @@ int state1(int state)
    byte number = 0;
    
    Serial2.begin(9600);
-   char buffer[50];
+   char buffer2[50];
 
       
     tmElements_t tm;
@@ -330,22 +412,22 @@ int state1(int state)
    while (true)
    {
        int byteCount;
-       buffer[0] = '\0';
+       buffer2[0] = '\0';
      
   
  
-       byteCount = Serial2.readBytesUntil('\n', buffer, 50);
+       byteCount = Serial2.readBytesUntil('\n', buffer2, 50);
        
 
      if (byteCount > 0)
      {
-       buffer[byteCount] = 0;
+       buffer2[byteCount] = 0;
      }
 
      Serial.print("count=");
      Serial.print(byteCount);
      Serial.print("command =");
-     Serial.println(buffer);
+     Serial.println(buffer2);
      
      if (byteCount > 1)
      {
@@ -353,20 +435,20 @@ int state1(int state)
          startTime = millis();
          // check for command
          
-         Serial.print("inside bytecount buffer=");
-         Serial.println(buffer);
-         if (strcmp(buffer, "RD")  == 0)   // ready command - send back OK
+
+         if (strcmp(buffer2, "RD")  == 0)   // ready command - send back OK
          {
            Serial2.write("OK\n");
+
          }
-         
-         if (strcmp(buffer, "GB")  == 0)   // Goodbye, leave state
+      
+         if (strcmp(buffer2, "GB")  == 0)   // Goodbye, leave state
          {
            Serial2.write("OK\n");
            break;
          }
          
-         if (strcmp(buffer, "GD")  == 0)   // Get Data
+         if (strcmp(buffer2, "GD")  == 0)   // Get Data
          {
            
            readStateValues();
@@ -449,12 +531,69 @@ int state1(int state)
            Serial.print("freeMemory =");
            Serial.println(floatString);
            strcat(returnString, floatString);
-          Serial2.write(returnString);
+           strcat(returnString, ",");           
            
-         }
+           floatString[0] = '\0';
+           dtostrf(UnregulatedWindVoltage,6,2,floatString);
+           Serial.print("UnregulatedWindVoltage =");
+           Serial.println(floatString);
+           strcat(returnString, floatString);
+           strcat(returnString, ",");
+           
+           
+           floatString[0] = '\0';
+           dtostrf(RegulatedWindVoltage,6,2,floatString);
+           Serial.print("RegulatedWindVoltagey =");
+           Serial.println(floatString);
+           strcat(returnString, floatString);
+
+ 
+           Serial2.write(returnString);
+           
+         } // end of GD
          
          
-         if (strcmp(buffer, "GTH")  == 0)   // Get Outside Temp Humidity
+    
+
+           
+ 
+         
+         if (strcmp(buffer2, "SL")  == 0)   // Get Data
+         {
+  
+           char returnString[200];
+           
+           returnString[0] = '\0';
+          
+          int unreadCount;
+           // send count
+           unreadCount = returnUnreadCount();
+           sprintf(returnString, "%i\n", unreadCount);
+           Serial.print("unreadCount=");
+           Serial.println(unreadCount);
+
+           Serial2.write(returnString);
+           // loop through log entries
+          
+           int index;
+           index = fetchNextUnreadEntry(); 
+           while (index != -1)
+           {
+             char buffer2[30];
+             buffer2[0] = '\0';
+             returnString[0] = '\0';
+             tmElements_t tm;
+             breakTime(LogEntryArray[index].entryTime, tm);
+             buildTimeString(buffer2, buffer2, tm );
+   
+             sprintf(returnString, "%s,%i,%i,%i\n", buffer2, LogEntryArray[index].entryType, LogEntryArray[index].entryData0, LogEntryArray[index].entryData1);
+             Serial2.write(returnString); 
+             index = fetchNextUnreadEntry();        
+             
+            }
+         } // end of SL
+
+         if (strcmp(buffer2, "GTH")  == 0)   // Get Outside Temp Humidity
          {
            
            readStateValues();
@@ -479,7 +618,7 @@ int state1(int state)
            
          }
          
-         if (strcmp(buffer, "WA")  == 0)   // Why did you interrupt me?
+         if (strcmp(buffer2, "WA")  == 0)   // Why did you interrupt me?
          {
             char returnString[200];
            returnString[0] = '\0';
@@ -494,7 +633,7 @@ int state1(int state)
            
          }
          
-         if (strcmp(buffer, "WD")  == 0)   // Watchdog
+         if (strcmp(buffer2, "WD")  == 0)   // Watchdog
          {
 
 
@@ -505,7 +644,7 @@ int state1(int state)
            
          }
          
-         if (strcmp(buffer, "AWA")  == 0)   // Acknowledge the WA command
+         if (strcmp(buffer2, "AWA")  == 0)   // Acknowledge the WA command
          {
             Serial2.write("OK\n");
             WAState = NOINTERRUPT;
@@ -517,7 +656,7 @@ int state1(int state)
          
          
          
-         if (strcmp(buffer, "ST")  == 0)   // Set UTC time on Arduino
+         if (strcmp(buffer2, "ST")  == 0)   // Set UTC time on Arduino
          {
            
 
@@ -580,7 +719,7 @@ int state1(int state)
            
          } // end of ST
          
-        if (strcmp(buffer, "STH")  == 0)   // Set thresholds on Arduino
+        if (strcmp(buffer2, "STH")  == 0)   // Set thresholds on Arduino
          {
            
 
@@ -619,15 +758,22 @@ int state1(int state)
             INSIDE_HUMIDITY_PI_STARTUP_THRESHOLD = atof(subStr(returnString, ",", 6)); 
             
             Serial.println(subStr(returnString, ",", 7));
-            strcpy(subStr(returnString, ",", 7), PI_START_TIME);
+            strcpy(PI_START_TIME, subStr(returnString, ",", 7));
+            Serial.print("Incoming PI_START_TIME=");
+            Serial.println(subStr(returnString, ",", 7));
+            Serial.print("New PI_START_TIME=");
+            Serial.println(PI_START_TIME);
             Serial.println(subStr(returnString, ",", 8));
-            strcpy(subStr(returnString, ",", 8), PI_SHUTDOWN_TIME);
+
+            strcpy(PI_SHUTDOWN_TIME, subStr(returnString, ",", 8));
 
             Serial.println(subStr(returnString, ",", 9));
             PI_MIDNIGHT_WAKEUP_SECONDS_LENGTH = atof(subStr(returnString, ",", 9)); 
             Serial.println(subStr(returnString, ",", 10));
             PI_MIDNIGHT_WAKEUP_THRESHOLD  = atof(subStr(returnString, ",", 10));
-           
+            Serial.println(subStr(returnString, ",", 11));
+            enableShutdowns  = atoi(subStr(returnString, ",", 11));
+         
             // Ok based on these constants, let's update the alarms
  
  
@@ -646,7 +792,7 @@ int state1(int state)
 
            
          } // end of STH
-        
+
 
      }
      else

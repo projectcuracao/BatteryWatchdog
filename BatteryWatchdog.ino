@@ -15,6 +15,15 @@
 
 // Interrupt handlers
 
+
+#define LOGCRITICAL 50
+#define LOGERROR 40
+#define LOGWARNING 30
+#define LOGINFO 20
+#define LOGDEBUG 10
+#define LOGNOTSET 0
+
+
 // defines for WA command
 #define NOINTERRUPT 0
 #define NOREASON 1
@@ -41,6 +50,7 @@ int WAState;
 #include <Adafruit_AM2315.h>
 
 #include "MemoryFree.h"
+#include "average.h"
 
 
 int count = 0;
@@ -52,7 +62,15 @@ unsigned long sleepTime; //how long you want the arduino to sleep
 #define indicatorLED 35
 #define PiRelaySet 29
 #define PiRelayReset 27
+#define selectSolarReset 43
+#define selectWindSet 41
 #define PiBatteryVoltageChannel A3
+#define UnregulatedWindVoltageChannel A7
+#define UnregulatedWindVoltageMultiplier 0.281
+#define RegulatedWindVoltageChannel A5
+#define RegulatedWindVoltageMultiplier 0.726
+#define PiSolarVoltageChannel A9
+#define PiSolarVoltageMultiplier 0.723
 #define interruptPi 22
 
 DS1307RTC MYRTC;
@@ -65,8 +83,12 @@ volatile int watchDogState; // true - ok, false reboot
 time_t  watchDogTime;
 long watchDogTimeIncrement;
 volatile int isPiOn;
+int shouldPiBeOn;
 int lastInterruptToPi;
 int enableWatchDog;   // disable watchdog during pi off times
+int enableShutdowns;  //enable/disable all shutdonwms
+
+int solarWind; // 0 for solar, 1 for wind
 // log stuff
 
 struct LogEntry {
@@ -79,7 +101,7 @@ struct LogEntry {
 
 int LogEntryNextItem;
 
-#define LOGENTRYTABLESIZE 10
+#define LOGENTRYTABLESIZE 50
 
 LogEntry LogEntryArray[LOGENTRYTABLESIZE];
 
@@ -87,11 +109,17 @@ long piOnTime;
 long piOffTime;
 long piMidnightOnTime;
 long piMidnightOffTime;
+long piVoltageShutdownTime;
 
 bool piOnTimeState;
 bool piOffTimeState;
 bool piMidnightOnTimeState;
 bool piMidnightOffTimeState;
+
+bool piVoltageShutdownTimeState;
+
+bool piVoltageStartupThresholdOK;
+bool piVoltageShutdownThresholdOK;
 
 volatile int isPiSignaledWD;
 //
@@ -119,11 +147,20 @@ volatile int isPiSignaledWD;
   float batteryThermistor = 0;
   time_t lastBoot;
   
+  float PiBatteryVoltage = 0.0;
+  
+  float UnregulatedWindVoltage = 0.0;
+  float RegulatedWindVoltage = 0.0;
+  float PiSolarVoltage = 0.0;
   
   const char *monthName[12] = {
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
+
+#define CNT 10
+float runningPiVoltage[CNT];
+
   
 /*  
 AlarmID_t PiOnAlarmID;
@@ -156,7 +193,7 @@ void Repeats(){
 void setup()
 {
   
-  Serial.begin(57600);           // set up Serial library at 9600 bps
+  Serial.begin(9600);           // set up Serial library at 9600 bps
   
   Serial.print(F("ArduinoBatteryWatchdog "));
   Serial.print(VERSIONNUMBER);
@@ -255,11 +292,38 @@ void setup()
   requestFromPi = false;
   isPiSignaledWD = false;
   lastInterruptToPi = NOINTERRUPT;
-  
- 
+  enableShutdowns = true;
+  piVoltageStartupThresholdOK = true;
+  piVoltageShutdownThresholdOK = true;
   setAlarmTimes();  // set up my alarms
-  
+  piVoltageShutdownTime = RTC.get();
 
+ 
+
+  
+  // load average array for PiVoltage for smoothing
+  int i;
+  for (i=0; i < CNT; i++)
+  {
+    
+    runningPiVoltage[i] = getAnalogVoltage(PiBatteryVoltageChannel);
+    
+  }
+
+  PiBatteryVoltage = rollingAverage(runningPiVoltage, CNT, getAnalogVoltage(PiBatteryVoltageChannel));
+
+  setpiVoltageStartupThresholdsOK(PiBatteryVoltage);
+  
+  UnregulatedWindVoltage = getAnalogVoltage(UnregulatedWindVoltageChannel)/UnregulatedWindVoltageMultiplier;
+  RegulatedWindVoltage = getAnalogVoltage(RegulatedWindVoltageChannel)/RegulatedWindVoltageMultiplier;
+  PiSolarVoltage = getAnalogVoltage(PiSolarVoltageChannel)/PiSolarVoltageMultiplier;
+
+Serial.print("UnregulatedWindVoltage=");
+Serial.println(UnregulatedWindVoltage);
+Serial.print("RegulatedWindVoltage=");
+Serial.println(RegulatedWindVoltage);
+Serial.print("PiSolarVoltage=");
+Serial.println(PiSolarVoltage);
 
 
 
@@ -271,15 +335,27 @@ void setup()
   digitalWrite(PiRelayReset, false);
   digitalWrite(PiRelaySet, false);
   
+  pinMode(selectSolarReset, OUTPUT);  // turn enegizing off for current to flow - pulse to pi off
+  pinMode(selectWindSet, OUTPUT);  // turn enegizing off for current to flow - pulse to pi on
+  digitalWrite(selectSolarReset, false);
+  digitalWrite(selectWindSet, false);
+  
   // set up interrupt to pi
   pinMode(interruptPi, OUTPUT);
   digitalWrite(interruptPi, false);
   digitalWrite(indicatorLED, false);
 
   LogEntryNextItem = 0; // clear table
-  initializeLogTable(); 
-  
+  initializeLogTable();
+ 
+ 
+  writeLogEntry( LOGINFO, LOGArduinoReboot, -1); 
+
   turnPiOn();
+  
+  solarWind = 0;
+  selectSolar();
+ 
   attachInterrupt(4, piRequestInterrupt, RISING);
   
 }
@@ -303,7 +379,7 @@ void loop() {
      
      case STATE1:
      
-        nextState = state1(currentState);    
+        nextState = state1(currentState);   
      break;
      
      case STATE3:
@@ -335,5 +411,11 @@ void loop() {
   }
   currentState = nextState;
    
+   
+   // dead man switch
+   
+   Serial.println("Dead Man Switch");
+   
+   //if Pi off for two days (48 hours) turn on
 }
 

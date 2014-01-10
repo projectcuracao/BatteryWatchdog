@@ -3,6 +3,20 @@
 // Utilities
 //
 
+void setpiVoltageStartupThresholdsOK(float voltage)
+{
+  
+  if (voltage > PI_BATTERY_STARTUP_THRESHOLD)
+    piVoltageStartupThresholdOK = true;
+    else
+    piVoltageStartupThresholdOK = false;
+    
+  if (voltage > PI_BATTERY_SHUTDOWN_THRESHOLD)
+    piVoltageShutdownThresholdOK = true;
+    else
+    piVoltageShutdownThresholdOK = false;
+}
+
 
 #define MAX_STRING_LEN 200
 // Function to return a substring defined by a delimiter at an index
@@ -23,21 +37,21 @@ char* subStr (char* str, char *delim, int index) {
 
 }
 
-void return2Digits(char returnString[], char *buffer, int digits)
+void return2Digits(char returnString[], char *buffer2, int digits)
 {
   if(digits < 10)
     sprintf(returnString,"0%i", digits);
   else
     sprintf(returnString,"%i", digits);
     
-  strcpy(returnString, buffer);
+  strcpy(returnString, buffer2);
     
 
 }
 
 
 
-void buildTimeString(char returnString[], char *buffer, tmElements_t convertTime)
+void buildTimeString(char returnString[], char *buffer2, tmElements_t convertTime)
 {
   
    

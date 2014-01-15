@@ -249,6 +249,7 @@ int state0(int state)
     PiSolarVoltage = getAnalogVoltage(PiSolarVoltageChannel)/PiSolarVoltageMultiplier;
     delay(10);
 
+
     
     Serial.print("Instant UnregulatedWindVoltage=");
     Serial.println(UnregulatedWindVoltage);
@@ -256,6 +257,10 @@ int state0(int state)
     Serial.println(RegulatedWindVoltage);
     Serial.print("Instant PiSolarVoltage=");
     Serial.println(PiSolarVoltage);
+    Serial.print("WindTurbineVoltageToMPH=");
+    Serial.println(convertWindTurbineVoltageToMPH(UnregulatedWindVoltage));
+
+  
 
 
 
@@ -546,6 +551,14 @@ int state1(int state)
            Serial.print("RegulatedWindVoltagey =");
            Serial.println(floatString);
            strcat(returnString, floatString);
+           strcat(returnString, ",");
+
+          
+           floatString[0] = '\0';
+           sprintf(floatString, "%i", solarWind);
+           Serial.print("solarWind =");
+           Serial.println(floatString);
+           strcat(returnString, floatString);
 
  
            Serial2.write(returnString);
@@ -641,6 +654,26 @@ int state1(int state)
            
           watchDogState= true; // true - ok, false reboot
           watchDogTime=RTC.get() + watchDogTimeIncrement;
+           
+         }
+         
+         if (strcmp(buffer2, "SS")  == 0)   // Watchdog
+         {
+
+
+           Serial2.write("OK\n");
+           
+           selectSolar();
+           
+         }
+         
+         if (strcmp(buffer2, "SW")  == 0)   // Watchdog
+         {
+
+
+           Serial2.write("OK\n");
+           
+           selectWind();
            
          }
          

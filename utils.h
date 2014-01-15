@@ -16,6 +16,33 @@ void setpiVoltageStartupThresholdsOK(float voltage)
     else
     piVoltageShutdownThresholdOK = false;
 }
+/*
+Equation: y = (c3 * x^3) + (c2 * x^2) + (c1 * x^1) + b
+
+Where:
+y = Wind Turbine Output Voltage
+x = Wind Speed in MPH
+
+The coefficients are:
+
+c3	-0.000224491
+c2	0.012549184
+c1	0.255523699
+b	0.247342657
+*/
+float convertWindTurbineVoltageToMPH(float x)
+{
+#define c3	-0.000224491
+#define c2	0.012549184
+#define c1	0.255523699
+#define b	0.247342657
+
+  if (x < 0.01f)
+    return 0.0;
+  
+  return (c3 * pow(x,3)) + (c2 * pow(x,2)) + (c1 * x) + b;
+
+}
 
 
 #define MAX_STRING_LEN 200

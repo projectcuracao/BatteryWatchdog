@@ -2,6 +2,20 @@
 // state machines for Battery Watchdog
 //
 
+
+
+void selectSolarOrWind()
+{
+  
+  // right now, we just put wind on at night and solar during day
+  long CurrentTime = RTC.get();
+  
+  
+  
+  
+  
+  
+}
 // print state
 
 void printStateVariables()
@@ -231,7 +245,7 @@ int state0(int state)
     
     PiBatteryVoltage = rollingAverage(runningPiVoltage, CNT, temp);
 
-    // displayLog();
+     //displayLog();
     
     // multiple channel reading (from http://forum.arduino.cc/index.php?topic=54976.0)
     setpiVoltageStartupThresholdsOK(PiBatteryVoltage);
@@ -381,6 +395,8 @@ int state0(int state)
   Serial.println("---->WATCHDOG DISABLED");
 #endif
 
+   // Now determine the wind or sun
+   selectSolarOrWind();
    
    return STATE0; 
 }

@@ -15,6 +15,8 @@ void setAlarmTimes()
  piMidnightOnTimeState = false;
  piMidnightOffTimeState = false;
  piVoltageShutdownTimeState = false;
+ piSunriseTimeState = false;
+ piSunsetTimeState = false;
  
   // set up alarms for pi control off and off
   int myhour;
@@ -55,6 +57,23 @@ void setAlarmTimes()
   Serial.print("piMidnightOffTime=");
   Serial.println(piMidnightOffTime);
 
+  sscanf(PI_SUNRISE_TIME, "%d:%d:", &myhour, &myminute);
+  Serial.print("myhour=");
+  Serial.println(myhour);
+  Serial.print("myminute=");
+  Serial.println(myminute);
+  
+  piSunriseTime = myhour*3600L+myminute*60L;
+ 
+  sscanf(PI_SUNSET_TIME, "%d:%d:", &myhour, &myminute);
+  Serial.print("myhour=");
+  Serial.println(myhour);
+  Serial.print("myminute=");
+  Serial.println(myminute);
+  
+  piSunsetTime = myhour*3600L+myminute*60L;
+
+ 
 
   
 }
@@ -293,8 +312,6 @@ void checkForPiShutdown(time_t timeNow)
 
    }
 
-  
-  
 }
 
 void checkForPiMidnightStartup(time_t timeNow)
@@ -348,12 +365,45 @@ void checkForPiMidnightShutdown(time_t timeNow)
  
   }
 
-
-  
-  
-  
 }
 
+void checkForPiSunriseTime(time_t timeNow)
+{
+  
+    
+  bool alarmTriggered;
+  
+  alarmTriggered = checkForAlarmTime(piSunriseTime, &piSunriseTimeState, timeNow, "PiSunrise\t" );
+  
+  if (alarmTriggered == true)
+  {
+
+      Serial.println("piSunriseState - Alarm Triggered");
+       
+      selectSolar(); 
+ 
+  }
+
+}
+
+void checkForPiSunsetTime(time_t timeNow)
+{
+  
+    
+  bool alarmTriggered;
+  
+  alarmTriggered = checkForAlarmTime(piSunsetTime, &piSunsetTimeState, timeNow, "PiSunset\t" );
+  
+  if (alarmTriggered == true)
+  {
+
+      Serial.println("piSunsetState - Alarm Triggered");
+       
+      selectWind(); 
+ 
+  }
+
+}
 
 
 void checkForAlarms()
@@ -365,6 +415,8 @@ void checkForAlarms()
   checkForPiMidnightStartup(timeNow);  
   checkForPiMidnightShutdown(timeNow);
   checkpiVoltageShutdownTime(timeNow);
+  checkForPiSunriseTime(timeNow);
+  checkForPiSunsetTime(timeNow);
 
   
 }

@@ -110,13 +110,20 @@ long piOffTime;
 long piMidnightOnTime;
 long piMidnightOffTime;
 long piVoltageShutdownTime;
+long piSunriseTime;
+long piSunsetTime;
+long arduinoDeadManSwitchTime;
 
 bool piOnTimeState;
 bool piOffTimeState;
 bool piMidnightOnTimeState;
 bool piMidnightOffTimeState;
+bool piSunriseTimeState;
+bool piSunsetTimeState;
 
 bool piVoltageShutdownTimeState;
+
+bool arduinoDeadManSwitchState;
 
 bool piVoltageStartupThresholdOK;
 bool piVoltageShutdownThresholdOK;
@@ -417,5 +424,7 @@ void loop() {
    Serial.println("Dead Man Switch");
    
    //if Pi off for two days (48 hours) turn on
+   
+   
 }
 

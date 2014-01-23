@@ -118,8 +118,7 @@ bool doInterruptPi()
 
 #define selectSolarReset 43
 #define selectWindSet 41
-#define LOGSolarSelect 17
-#define LOGWindSelect 18
+
 // select solar/wind
 bool selectSolar()
 {

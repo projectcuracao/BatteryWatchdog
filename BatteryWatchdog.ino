@@ -1,7 +1,8 @@
+
 // Filename WatchdogBattery.ino
 // Version 1.0 09/17/13 JS MiloCreek
 //
-#define VERSIONNUMBER 1.1
+#define VERSIONNUMBER 1.2
 // Normal run state
 #define STATE0   0
 //  Communicate with Pi and WD Timer
@@ -96,7 +97,7 @@ struct LogEntry {
   int entryType;
   int entryData0;
   int entryData1;
-  bool entryRead;
+  int entryRead;
 };
 
 int LogEntryNextItem;
@@ -159,6 +160,8 @@ volatile int isPiSignaledWD;
   float UnregulatedWindVoltage = 0.0;
   float RegulatedWindVoltage = 0.0;
   float PiSolarVoltage = 0.0;
+  
+  float readArduinoSL = false;
   
   const char *monthName[12] = {
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -305,6 +308,7 @@ void setup()
   setAlarmTimes();  // set up my alarms
   piVoltageShutdownTime = RTC.get();
 
+  readArduinoSL = false;
  
 
   

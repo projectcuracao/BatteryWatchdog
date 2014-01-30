@@ -229,7 +229,7 @@ void checkpiVoltageShutdownTime(time_t timeNow)
     {
 
       Serial.println("checkpiVoltageShutdownTime - Alarm Triggered");
-      writeLogEntry( LOGINFO, LOGAlarmTriggered, 4); 
+      writeLogEntry( LOGINFO, LOGAlarmTriggered, ALARMpiVoltageShutdownTime); 
       // check to see if battery has recovered in last 200 seconds
       
       if (piVoltageShutdownThresholdOK == true)
@@ -268,13 +268,13 @@ void checkForPiStartup(time_t timeNow)
   {
     if (enableShutdowns == false)
     {
-      writeLogEntry( LOGINFO, LOGAlarmDisabled, 1); 
+      writeLogEntry( LOGINFO, LOGAlarmDisabled, ALARMPiStartup); 
     }
     else
     {
 
       Serial.println("checkForPiStartup - Alarm Triggered");
-      writeLogEntry( LOGINFO, LOGAlarmTriggered, 1); 
+      writeLogEntry( LOGINFO, LOGAlarmTriggered, ALARMPiStartup); 
       PiBoot();
     }
 
@@ -301,12 +301,12 @@ void checkForPiShutdown(time_t timeNow)
   {
     if (enableShutdowns == false)
     {
-      writeLogEntry( LOGINFO, LOGAlarmDisabled, 0); 
+      writeLogEntry( LOGINFO, LOGAlarmDisabled, ALARMPiShutdown); 
     }
     else
     {
       Serial.println("checkForPiShutdown - Alarm Triggered");
-      writeLogEntry( LOGINFO, LOGAlarmTriggered, 0); 
+      writeLogEntry( LOGINFO, LOGAlarmTriggered, ALARMPiShutdown); 
       PiShutdown();
     }
 
@@ -326,12 +326,12 @@ void checkForPiMidnightStartup(time_t timeNow)
   {
     if (enableShutdowns == false)
     {
-      writeLogEntry( LOGINFO, LOGAlarmDisabled, 2); 
+      writeLogEntry( LOGINFO, LOGAlarmDisabled, ALARMpiMidnightOnTime); 
     }
     else
     {
       Serial.println("piMidnightOnTimeState - Alarm Triggered");
-      writeLogEntry( LOGINFO, LOGAlarmTriggered, 2); 
+      writeLogEntry( LOGINFO, LOGAlarmTriggered, ALARMpiMidnightOnTime); 
       PiBoot();
     }
 
@@ -354,12 +354,12 @@ void checkForPiMidnightShutdown(time_t timeNow)
   {
     if (enableShutdowns == false)
     {
-      writeLogEntry( LOGINFO, LOGAlarmDisabled, 3); 
+      writeLogEntry( LOGINFO, LOGAlarmDisabled, ALARMpiMidnightOffTime); 
     }
     else
     {
       Serial.println("piMidnightOffTimeState - Alarm Triggered");
-      writeLogEntry( LOGINFO, LOGAlarmTriggered, 3); 
+      writeLogEntry( LOGINFO, LOGAlarmTriggered, ALARMpiMidnightOffTime); 
       PiShutdown();
     }
  
@@ -379,7 +379,8 @@ void checkForPiSunriseTime(time_t timeNow)
   {
 
       Serial.println("piSunriseState - Alarm Triggered");
-       
+      writeLogEntry( LOGINFO, LOGAlarmTriggered, ALARMpiSunrise); 
+      
       selectSolar(); 
  
   }
@@ -398,6 +399,7 @@ void checkForPiSunsetTime(time_t timeNow)
   {
 
       Serial.println("piSunsetState - Alarm Triggered");
+      writeLogEntry( LOGINFO, LOGAlarmTriggered, ALARMpiSunset); 
        
       selectWind(); 
  

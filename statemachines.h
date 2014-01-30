@@ -245,7 +245,7 @@ int state0(int state)
     
     PiBatteryVoltage = rollingAverage(runningPiVoltage, CNT, temp);
 
-     //displayLog();
+     displayLog();
     
     // multiple channel reading (from http://forum.arduino.cc/index.php?topic=54976.0)
     setpiVoltageStartupThresholdsOK(PiBatteryVoltage);
@@ -460,12 +460,21 @@ int state1(int state)
          if (strcmp(buffer2, "RD")  == 0)   // ready command - send back OK
          {
            Serial2.write("OK\n");
+           readArduinoSL = false;
 
          }
       
          if (strcmp(buffer2, "GB")  == 0)   // Goodbye, leave state
          {
            Serial2.write("OK\n");
+           
+           if (readArduinoSL == true)
+             convertLogTriedToReadToSuccess();
+           else
+             convertLogTriedToReadToNotRead();
+             
+           readArduinoSL = false;
+           
            break;
          }
          
@@ -594,6 +603,8 @@ int state1(int state)
            
            returnString[0] = '\0';
           
+          
+          readArduinoSL = true;
           int unreadCount;
            // send count
            unreadCount = returnUnreadCount();

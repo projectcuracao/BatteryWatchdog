@@ -4,6 +4,42 @@
 //
 //
 
+
+time_t readRTCreliably()
+{
+  
+ time_t returnTime;
+ 
+ int i;
+ i = 0;
+ for (i=0; i< 5; i++)
+ {
+   returnTime = RTC.get();
+
+   if (returnTime == 0)
+    {
+     Serial.println("<<<<<<<<<<<<<<Bad Time Read from RTC");
+    }
+    else
+    {
+      return returnTime;
+    }
+  
+ }
+ 
+ // 5 bad ones, take current time
+ Serial.println(">>>>>>>>>>>>Time taken from Arduino");
+ writeLogEntry( LOGINFO, LOGBad5RTCRead, 1); 
+ 
+ //resetFunc (); //declare reset function @ address 0
+ //delay(100);
+ return now();
+
+  
+}
+
+
+
 void justTurnPiOff()
 {
   

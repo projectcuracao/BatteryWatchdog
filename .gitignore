@@ -5,3 +5,4 @@ tx*
 *.temp
 *.test
 nohup.out
+.*DS_Store

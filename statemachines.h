@@ -8,7 +8,7 @@ void selectSolarOrWind()
 {
   
   // right now, we just put wind on at night and solar during day
-  long CurrentTime = RTC.get();
+  long CurrentTime = readRTCreliably();
   
   
   
@@ -50,7 +50,9 @@ Serial.print("-SBPiOn=");
  if (enableWatchDog == false)
    Serial.println("WD Disabled");
  else
- Serial.println(watchDogTime - RTC.get());
+ {
+   Serial.println(watchDogTime - readRTCreliably());
+ }
 }
 
 
@@ -226,7 +228,7 @@ int state0(int state)
     char timeNow[20];
     timeNow[0] = '\0';
     buildTimeString(timeNow, timeNow, tm);
-    
+    Serial.print("---------------------->");
     Serial.print(timeNow);
     Serial.println();
     Serial.print("FreeMemory=");
@@ -245,7 +247,7 @@ int state0(int state)
     
     PiBatteryVoltage = rollingAverage(runningPiVoltage, CNT, temp);
 
-     displayLog();
+     //displayLog();
     
     // multiple channel reading (from http://forum.arduino.cc/index.php?topic=54976.0)
     setpiVoltageStartupThresholdsOK(PiBatteryVoltage);
@@ -271,8 +273,8 @@ int state0(int state)
     Serial.println(RegulatedWindVoltage);
     Serial.print("Instant PiSolarVoltage=");
     Serial.println(PiSolarVoltage);
-    Serial.print("WindTurbineVoltageToMPH=");
-    Serial.println(convertWindTurbineVoltageToMPH(UnregulatedWindVoltage));
+    //Serial.print("WindTurbineVoltageToMPH=");
+    //Serial.println(convertWindTurbineVoltageToMPH(UnregulatedWindVoltage));
 
   
 
@@ -293,7 +295,7 @@ int state0(int state)
  {
       
       Serial.println("Shutdown Pi from battery low");
-      piVoltageShutdownTime = RTC.get() % 86400 + 200L;  // set alarm two hundred seconds in the future
+      piVoltageShutdownTime = readRTCreliably() % 86400 + 200L;  // set alarm two hundred seconds in the future
       
       // tell pi to shutdown
       watchDogState = false;
@@ -323,7 +325,7 @@ int state0(int state)
  
 
  #ifdef USEWATCHDOG
-  if ((RTC.get() > watchDogTime ) && (enableWatchDog == true))
+  if ((readRTCreliably() > watchDogTime ) && (enableWatchDog == true))
   {
     // we need to reboot machine
     
@@ -361,7 +363,7 @@ int state0(int state)
                 WAState = NOINTERRUPT;
                 watchDogState = true;
                 enableWatchDog = true;
-                watchDogTime = RTC.get() + watchDogTimeIncrement;
+                watchDogTime = readRTCreliably() + watchDogTimeIncrement;
               }
               if (lastInterruptToPi == SHUTDOWN)
               {
@@ -371,7 +373,7 @@ int state0(int state)
                 WAState = NOINTERRUPT;
                 watchDogState = true;
                 enableWatchDog = false;
-                watchDogTime = RTC.get() + watchDogTimeIncrement;
+                watchDogTime = readRTCreliably() + watchDogTimeIncrement;
               }
   
              
@@ -680,7 +682,7 @@ int state1(int state)
            Serial2.write("OK\n");
            
           watchDogState= true; // true - ok, false reboot
-          watchDogTime=RTC.get() + watchDogTimeIncrement;
+          watchDogTime=readRTCreliably() + watchDogTimeIncrement;
            
          }
          

@@ -23,8 +23,8 @@ char PI_START_TIME[] = "10:10:00";
 //char PI_SUNSET_TIME[] =  "02:00:00"; //  18:00 curacao time
 
 char PI_SUNRISE_TIME[] = "15:00:00"; //  07:00 Coeur d'Alene time
-//char PI_SUNSET_TIME[] =  "03:00:00"; //  19:00  Coeur d'Alene time
-char PI_SUNSET_TIME[] =  "22:59:00"; //  19:00  Coeur d'Alene time
+char PI_SUNSET_TIME[] =  "03:00:00"; //  19:00  Coeur d'Alene time
+//char PI_SUNSET_TIME[] =  "22:59:00"; //  19:00  Coeur d'Alene time
 
 
 //char PI_START_TIME[] = "04:45:00";

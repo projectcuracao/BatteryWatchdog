@@ -167,7 +167,7 @@ void PiBoot(){
   watchDogState = true;
   watchDogTimeIncrement = 16L * 60L; // 16 minutes
   //watchDogTimeIncrement = 2 * 60; // 16 minutes
-  watchDogTime = RTC.get()+watchDogTimeIncrement;
+  watchDogTime = readRTCreliably()+watchDogTimeIncrement;
   requestFromPi = false;
   isPiSignaledWD = false;
   lastInterruptToPi = NOINTERRUPT;
@@ -188,7 +188,7 @@ void PiShutdown(){
   Serial.println("---->try shutdown, then power cycle if no response");
   doInterruptPi();
   watchDogTimeIncrement = 3L * 60L; // give Pi 3 minutes to respond and shutdown
-  watchDogTime = RTC.get()+watchDogTimeIncrement;
+  watchDogTime = readRTCreliably()+watchDogTimeIncrement;
 
 
 }
@@ -244,7 +244,7 @@ void checkpiVoltageShutdownTime(time_t timeNow)
       }
       
     }
-      piVoltageShutdownTime = RTC.get(); // far in future
+      piVoltageShutdownTime = readRTCreliably(); // far in future
       piVoltageShutdownTimeState = false;
 
   }
@@ -411,7 +411,7 @@ void checkForPiSunsetTime(time_t timeNow)
 void checkForAlarms()
 {
   time_t timeNow;
-  timeNow = RTC.get();
+  timeNow = readRTCreliably();
   checkForPiShutdown(timeNow);
   checkForPiStartup(timeNow);
   checkForPiMidnightStartup(timeNow);  

@@ -2,7 +2,7 @@
 // Filename WatchdogBattery.ino
 // Version 1.0 09/17/13 JS MiloCreek
 //
-#define VERSIONNUMBER 1.2
+#define VERSIONNUMBER 1.4
 // Normal run state
 #define STATE0   0
 //  Communicate with Pi and WD Timer
@@ -67,11 +67,11 @@ unsigned long sleepTime; //how long you want the arduino to sleep
 #define selectWindSet 41
 #define PiBatteryVoltageChannel A3
 #define UnregulatedWindVoltageChannel A7
-#define UnregulatedWindVoltageMultiplier 0.281
+#define UnregulatedWindVoltageMultiplier 0.275
 #define RegulatedWindVoltageChannel A5
-#define RegulatedWindVoltageMultiplier 0.726
+#define RegulatedWindVoltageMultiplier 0.721
 #define PiSolarVoltageChannel A9
-#define PiSolarVoltageMultiplier 0.723
+#define PiSolarVoltageMultiplier 0.720
 #define interruptPi 22
 
 DS1307RTC MYRTC;
@@ -180,10 +180,14 @@ AlarmID_t PiOffMidnightAlarmID;
 */
 
 
+
+
 // file includes
 #include "EnvironConstants.h"
 #include "utils.h"
+
 #include "logging.h"
+
 #include "readthermistor.h"
 #include "actions.h"
 
@@ -198,6 +202,31 @@ Sleep sleep;
 void Repeats(){
   Serial.println("----------------------------40 second timer");         
 }
+
+
+void digitalClockDisplay(){
+  // digital clock display of the time
+  Serial.print(hour());
+  printDigits(minute());
+  printDigits(second());
+  Serial.print(" ");
+  Serial.print(day());
+  Serial.print(" ");
+  Serial.print(month());
+  Serial.print(" ");
+  Serial.print(year()); 
+  Serial.println(); 
+}
+
+void printDigits(int digits){
+  // utility function for digital clock display: prints preceding colon and leading 0
+  Serial.print(":");
+  if(digits < 10)
+    Serial.print('0');
+  Serial.print(digits);
+}
+
+
 
 
 void setup()
@@ -268,17 +297,19 @@ void setup()
 */
   Serial.print("timeStatus =");
   Serial.println(timeStatus());
-  lastBoot = RTC.get();
-  setTime(RTC.get());
+  lastBoot = readRTCreliably();
+  
+  setTime(readRTCreliably());
   setSyncProvider(RTC.get);
   Serial.print("timeStatus =");
   Serial.println(timeStatus());
-  
-
-  
+  Serial.println("----internal arduino clock");
+  digitalClockDisplay();
+   Serial.println("----internal arduino clock");
+   
   RTC.read(tm);
   
-    Serial.write(tm.Hour);
+ /*   Serial.write(tm.Hour);
     Serial.write(':');
     Serial.write(tm.Minute);
     Serial.write(':');
@@ -290,6 +321,7 @@ void setup()
     Serial.write('/');
     Serial.print(tmYearToCalendar(tm.Year));
     Serial.println();
+    */
   
   WAState = NOINTERRUPT;
   sleepTime=5000;
@@ -298,7 +330,16 @@ void setup()
   watchDogState = true;
   watchDogTimeIncrement = 16L * 60L; // 16 minutes
   //watchDogTimeIncrement = 2 * 60; // 2 minutes
-  watchDogTime = RTC.get()+watchDogTimeIncrement;
+  watchDogTime = readRTCreliably()+watchDogTimeIncrement;
+  enableWatchDog = true;
+  
+ Serial.print("Time to WD:");
+ if (enableWatchDog == false)
+   Serial.println("WD Disabled");
+ else
+ {
+   Serial.println(watchDogTime - readRTCreliably());  
+ }
   requestFromPi = false;
   isPiSignaledWD = false;
   lastInterruptToPi = NOINTERRUPT;
@@ -306,7 +347,7 @@ void setup()
   piVoltageStartupThresholdOK = true;
   piVoltageShutdownThresholdOK = true;
   setAlarmTimes();  // set up my alarms
-  piVoltageShutdownTime = RTC.get();
+  piVoltageShutdownTime = readRTCreliably();
 
   readArduinoSL = false;
  
@@ -369,6 +410,8 @@ Serial.println(PiSolarVoltage);
  
   attachInterrupt(4, piRequestInterrupt, RISING);
   
+
+  
 }
 
 
@@ -419,15 +462,21 @@ void loop() {
     delay(1000);
     sleep.pwrDownMode();
     sleep.sleepDelay(sleepTime); 
+    setTime(readRTCreliably());
+    
+     Serial.print("MLtimeStatus =");
+  Serial.println(timeStatus());
+  Serial.println("ML----internal arduino clock");
+  digitalClockDisplay();
+   Serial.println("ML----internal arduino clock");
   }
   currentState = nextState;
    
    
-   // dead man switch
+   // dead man switch  
    
-   Serial.println("Dead Man Switch");
    
-   //if Pi off for two days (48 hours) turn on
+  
    
    
 }

@@ -32,6 +32,7 @@
 #define LOGSolarSelect 17
 #define LOGWindSelect 18
 #define LOGVoltageCancelledRecovery 19
+#define LOGBad5RTCRead 20
 
 
 // Alarms
@@ -70,10 +71,12 @@ void initializeLogTable()
   
 }
 
+time_t readRTCreliably();
+
 void writeLogEntry( int entryType, int entryData0, int entryData1)
 {
 
-     LogEntryArray[LogEntryNextItem].entryTime = RTC.get();
+     LogEntryArray[LogEntryNextItem].entryTime = readRTCreliably();
      LogEntryArray[LogEntryNextItem].entryType = entryType;
      LogEntryArray[LogEntryNextItem].entryData0 = entryData0;
      LogEntryArray[LogEntryNextItem].entryData1 = entryData1;

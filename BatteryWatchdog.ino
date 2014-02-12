@@ -2,7 +2,7 @@
 // Filename WatchdogBattery.ino
 // Version 1.0 09/17/13 JS MiloCreek
 //
-#define VERSIONNUMBER 1.4
+#define VERSIONNUMBER 1.5
 // Normal run state
 #define STATE0   0
 //  Communicate with Pi and WD Timer

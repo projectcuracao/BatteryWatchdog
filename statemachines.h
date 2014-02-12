@@ -680,9 +680,17 @@ int state1(int state)
 
 
            Serial2.write("OK\n");
-           
-          watchDogState= true; // true - ok, false reboot
-          watchDogTime=readRTCreliably() + watchDogTimeIncrement;
+           if ((watchDogState == false) && (lastInterruptToPi == SHUTDOWN))
+           {
+             // don;t reset WD.  We are in the middle of a shutdown
+           }
+           else
+           {
+             // reset Watchdog
+             
+            watchDogState= true; // true - ok, false shutdown
+            watchDogTime=readRTCreliably() + watchDogTimeIncrement;
+           }
            
          }
          

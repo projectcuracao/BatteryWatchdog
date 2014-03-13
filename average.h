@@ -158,6 +158,10 @@ float rollingAverage(float *store, int size, float entry)
 	store[size-1] = entry;
 	total += entry;
 	result = total / (float)size;
+        Serial.print("entry_volt=");
+        Serial.println(entry);
+        Serial.print("result=");
+        Serial.println(result);
 
 	return result;
 }

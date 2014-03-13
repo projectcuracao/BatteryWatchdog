@@ -2,7 +2,7 @@
 // Filename WatchdogBattery.ino
 // Version 1.0 09/17/13 JS MiloCreek
 //
-#define VERSIONNUMBER 1.5
+#define VERSIONNUMBER 1.6
 // Normal run state
 #define STATE0   0
 //  Communicate with Pi and WD Timer
@@ -250,8 +250,33 @@ void setup()
     Serial.println("RTC is NOT running!");
     // following line sets the RTC to the date & time this sketch was compiled
     
-    if (getDate(__DATE__, tm) && getTime(__TIME__, tm)) {
+ //   if (getDate(__DATE__, tm) && getTime(__TIME__, tm))
+    {
+      char Month[12];
+      int Day, Year;
+      uint8_t monthIndex;
 
+      sscanf(__DATE__, "%s %d %d", Month, &Day, &Year);
+      Serial.print("MDY=");
+      Serial.print(Month);
+      Serial.print(Day);
+      Serial.println(Year);
+      for (monthIndex = 0; monthIndex < 12; monthIndex++) {
+        if (strcmp(Month, monthName[monthIndex]) == 0) break;
+      }
+  
+
+      tm.Day = Day;
+      tm.Month = monthIndex + 1;
+      tm.Year = CalendarYrToTm(Year);
+  
+    int Hour, Min, Sec;
+
+      sscanf(__TIME__, "%d:%d:%d", &Hour, &Min, &Sec);
+ 
+      tm.Hour = Hour;
+      tm.Minute = Min;
+      tm.Second = Sec; 
        char timeNow[20];
        timeNow[0] = '\0';
        buildTimeString(timeNow, timeNow, tm);
@@ -278,10 +303,7 @@ void setup()
        Serial.println("getDate true");
                    
     }
-    else
-    {
-      Serial.println("getDate false");
-    }
+
     
 
   }
@@ -359,6 +381,9 @@ void setup()
   {
     
     runningPiVoltage[i] = getAnalogVoltage(PiBatteryVoltageChannel);
+    delay(500);
+    Serial.print("volt=");
+    Serial.println(runningPiVoltage[i]);
     
   }
 
@@ -403,7 +428,8 @@ Serial.println(PiSolarVoltage);
  
   writeLogEntry( LOGINFO, LOGArduinoReboot, -1); 
 
-  turnPiOn();
+  // turnPiOn();
+  justTurnPiOn();
   
   solarWind = 0;
   selectSolar();

@@ -7,7 +7,7 @@
 
 //float PI_BATTERY_SHUTDOWN_THRESHOLD = 3.66; // 20%
 float PI_BATTERY_SHUTDOWN_THRESHOLD = 3.70; // 20%
-float PI_BATTERY_STARTUP_THRESHOLD = 3.95; // 30%
+float PI_BATTERY_STARTUP_THRESHOLD = 3.88; // 30%
 
 float INSIDE_TEMPERATURE_PI_SHUTDOWN_THRESHOLD = 49.33; // 110
 float INSIDE_TEMPERATURE_PI_STARTUP_THRESHOLD = 37.78; // 1000
@@ -16,14 +16,17 @@ float INSIDE_TEMPERATURE_PI_STARTUP_THRESHOLD = 37.78; // 1000
 float INSIDE_HUMIDITY_PI_SHUTDOWN_THRESHOLD = 98.0;
 float INSIDE_HUMIDITY_PI_STARTUP_THRESHOLD = 93.0;
 
-char PI_SHUTDOWN_TIME[] = "06:10:00";
-char PI_START_TIME[] = "10:10:00";
+//char PI_SHUTDOWN_TIME[] = "06:10:00";
+//char PI_START_TIME[] = "10:10:00";
 
-//char PI_SUNRISE_TIME[] = "10:00:00"; //  06:00 curacao time
-//char PI_SUNSET_TIME[] =  "02:00:00"; //  18:00 curacao time
+char PI_SHUTDOWN_TIME[] = "00:10:00"; // 20:00 curacao time
+char PI_START_TIME[] = "09:30:00"; // 05:30 curacao time
 
-char PI_SUNRISE_TIME[] = "15:00:00"; //  07:00 Coeur d'Alene time
-char PI_SUNSET_TIME[] =  "03:00:00"; //  19:00  Coeur d'Alene time
+char PI_SUNRISE_TIME[] = "10:00:00"; //  06:00 curacao time
+char PI_SUNSET_TIME[] =  "22:00:00"; //  18:00 curacao time
+
+//char PI_SUNRISE_TIME[] = "15:00:00"; //  07:00 Coeur d'Alene time
+//char PI_SUNSET_TIME[] =  "03:00:00"; //  19:00  Coeur d'Alene time
 //char PI_SUNSET_TIME[] =  "22:59:00"; //  19:00  Coeur d'Alene time
 
 

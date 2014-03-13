@@ -219,8 +219,7 @@ int readNextLineFromPi(char returnString[], char *buffer2)
 // run state
 int state0(int state)
 {
-   Serial.println("Entering STATE0");
-   
+    Serial.println("Entering STATE0");
     tmElements_t tm;
     RTC.read(tm);
 
@@ -228,18 +227,20 @@ int state0(int state)
     char timeNow[20];
     timeNow[0] = '\0';
     buildTimeString(timeNow, timeNow, tm);
+
     Serial.print("---------------------->");
     Serial.print(timeNow);
     Serial.println();
     Serial.print("FreeMemory=");
     Serial.println(freeMemory());
-    Serial.print("PiBatteryVoltage =");
+    Serial.print("Instant PiBatteryVoltage =");
     float temp;
     delay(10);
     temp = getAnalogVoltage(PiBatteryVoltageChannel);
     Serial.println(temp);
     delay(10);
     delay(100);
+    Serial.print("Rolling PiBatteryVoltage =");
     Serial.println(PiBatteryVoltage);
     Serial.print("Instant PiBatteryVoltage=");
     temp = getAnalogVoltage(PiBatteryVoltageChannel);
@@ -586,6 +587,11 @@ int state1(int state)
            Serial.print("solarWind =");
            Serial.println(floatString);
            strcat(returnString, floatString);
+           
+           strcat(returnString, ",");
+           floatString[0] = '\0';
+           dtostrf(PiBatteryVoltage,6,2,floatString);
+           strcat(returnString, floatString);
 
  
            Serial2.write(returnString);
@@ -656,6 +662,7 @@ int state1(int state)
            
   
            strcat(returnString, floatString);
+ 
           Serial2.write(returnString);
            
          }
@@ -758,9 +765,54 @@ int state1(int state)
                      Serial.println(returnString2);
                      tmElements_t tm;
                      
-                    if (getDate(returnString, tm) && getTime(returnString2, tm)) {
+ //                   if (getDate(returnString, tm) && getTime(returnString2, tm))
+                    {
+  char Month[12];
+  int Day, Year;
+  uint8_t monthIndex;
+
+  sscanf(returnString, "%s %d %d", Month, &Day, &Year);
+  Serial.print("MDY=");
+  Serial.print(Month);
+  Serial.print(Day);
+  Serial.println(Year);
+  for (monthIndex = 0; monthIndex < 12; monthIndex++) {
+    if (strcmp(Month, monthName[monthIndex]) == 0) break;
+  }
+  
+
+  tm.Day = Day;
+  tm.Month = monthIndex + 1;
+  tm.Year = CalendarYrToTm(Year);
+  
+    int Hour, Min, Sec;
+
+  sscanf(returnString2, "%d:%d:%d", &Hour, &Min, &Sec);
+ 
+  tm.Hour = Hour;
+  tm.Minute = Min;
+  tm.Second = Sec; 
+
 
                       // and configure the RTC with this info
+                        Serial.print("tm2=");
+                        Serial.print(tm.Day);
+                        Serial.print("/");
+                        Serial.print(tm.Month);
+                        Serial.print("/");
+                        Serial.println(tm.Year);  
+                        Serial.print(tm.Hour);
+                        Serial.print(":");
+                        Serial.print(tm.Minute);
+                        Serial.print(":");
+                        Serial.println(tm.Second);
+                        
+                      char timeNow[30];
+                      timeNow[0] = '\0';
+                      buildTimeString(timeNow, timeNow, tm);
+                      Serial.print("builtTime=");
+                      Serial.println(timeNow);
+ 
                       RTC.write(tm);
                    
                      }
@@ -788,6 +840,31 @@ int state1(int state)
 
            
          } // end of ST
+ 
+          if (strcmp(buffer2, "RT")  == 0)   // Read UTC time on Arduino
+         {
+           
+
+
+           char returnString[200];
+           returnString[0] = '\0';
+           
+           tmElements_t tm;
+           RTC.read(tm);
+
+
+           char timeNow[20];
+           timeNow[0] = '\0';
+           buildTimeString(timeNow, timeNow, tm);
+          
+           sprintf(returnString, "%s", timeNow);
+  
+  
+
+           Serial2.write(returnString);
+
+           
+         } // end of RT
          
         if (strcmp(buffer2, "STH")  == 0)   // Set thresholds on Arduino
          {

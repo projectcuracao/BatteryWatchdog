@@ -48,8 +48,8 @@ void setAlarmTimes()
 
    // midnight alarm 00:00 local
    
-  piMidnightOnTime = 8*3600L;   // 08:00 CDA time, 04:00 CURACAO time
-  //piMidnightOnTime = 4*3600L+600L;   // 08:00 CDA time, 04:00 CURACAO time
+  //piMidnightOnTime = 8*3600L;   // 08:00 CDA time, 04:00 CURACAO time
+  piMidnightOnTime = 4*3600L+600L;   // 08:00 CDA time, 04:00 CURACAO time
   Serial.print("piMidnightOnTime=");
   Serial.println(piMidnightOnTime);
   

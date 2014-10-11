@@ -2,7 +2,7 @@
 // Filename WatchdogBattery.ino
 // Version 1.0 09/17/13 JS MiloCreek
 //
-#define VERSIONNUMBER 1.6
+#define VERSIONNUMBER 2.0
 // Normal run state
 #define STATE0   0
 //  Communicate with Pi and WD Timer
@@ -92,6 +92,10 @@ int enableShutdowns;  //enable/disable all shutdonwms
 int solarWind; // 0 for solar, 1 for wind
 // log stuff
 
+#include <Adafruit_FRAM_I2C.h>
+
+Adafruit_FRAM_I2C fram     = Adafruit_FRAM_I2C();
+
 struct LogEntry {
   time_t entryTime;
   int entryType;
@@ -171,6 +175,21 @@ volatile int isPiSignaledWD;
 #define CNT 10
 float runningPiVoltage[CNT];
 
+
+int RESET_WATCHDOG = 26;
+int WATCHDOG_OUTPUT = 32;
+
+
+
+
+void ResetWatchdog()
+{
+    pinMode(RESET_WATCHDOG, OUTPUT);
+    delay(200);
+    pinMode(RESET_WATCHDOG, INPUT);
+    Serial.println("Watchdog Reset");
+    
+}
   
 /*  
 AlarmID_t PiOnAlarmID;
@@ -194,7 +213,11 @@ AlarmID_t PiOffMidnightAlarmID;
 #include "interrupthandlers.h"
 
 #include "picontrol.h"
+
+#include "LogFram.h"
 #include "statemachines.h"
+
+
 
 
 Sleep sleep;
@@ -227,7 +250,44 @@ void printDigits(int digits){
 }
 
 
+float windSpeedMin;
+float windSpeedMax;
+float windGustMin;
+float windGustMax;
+float windDirectionMin;
+float windDirectionMax;
 
+
+float currentWindSpeed;
+float currentWindGust;
+
+float rainTotal;
+
+// weather
+#include "SDL_Weather_80422.h"
+
+#define pinLED     13   // LED connected to digital pin 13
+#define pinAnem    18  // Anenometer connected to pin 18 - Int 5
+#define pinRain    2   // Rain Bucket connecto to pin 19 - Int 4
+#define intAnem    5
+#define intRain    0
+
+// for mega, have to use Port B - only Port B works.
+/*
+ Arduino Pins         PORT
+ ------------         ----
+ Digital 0-7          D
+ Digital 8-13         B
+ Analog  0-5          C
+*/
+
+
+// initialize SDL_Weather_80422 library
+SDL_Weather_80422 weatherStation(pinAnem, pinRain, intAnem, intRain, A0, SDL_MODE_INTERNAL_AD);
+
+#include "elapsedMillis.h"
+
+elapsedMillis timeElapsed; //declare global if you don't want it reset every time loop runs
 
 void setup()
 {
@@ -243,6 +303,19 @@ void setup()
   Serial.println(F(__DATE__));
   Serial.println();
   
+  
+    if (fram.begin()) {  // you can stick the new i2c addr in here, e.g. begin(0x51);
+    Serial.println("Found I2C FRAM");
+    
+    initializeFRAMTable(104); // initialize with 104 size
+    
+
+    
+    
+  } else {
+    Serial.println("No I2C FRAM found ... check your connections\r\n");
+    //while (1);
+  }
 
     tmElements_t tm;
     
@@ -436,6 +509,8 @@ Serial.println(PiSolarVoltage);
  
   attachInterrupt(4, piRequestInterrupt, RISING);
   
+  timeElapsed = 0;
+  
 
   
 }
@@ -482,26 +557,170 @@ void loop() {
   
   checkForAlarms();
   
+  
+  Serial.print("timeElapsed=");
+  Serial.println(timeElapsed);
+  
+  // Weather sampling
+  
+   if (timeElapsed > 300000) // every 5 minutes record it
+  {
+    
+			
+    
+    Serial.print("time=");
+    Serial.println(millis());
+    Serial.print("micro time=");
+    Serial.println(micros());
+    currentWindSpeed = weatherStation.current_wind_speed()/1.6;
+    currentWindGust = weatherStation.get_wind_gust()/1.6;
+    
+    float oldRain = rainTotal;
+    rainTotal = rainTotal + weatherStation.get_current_rain_total()*0.03937;
+    if (oldRain < rainTotal)
+    {
+     Serial.println("It is Raining\0");
+    }
+      
+      
+    timeElapsed = 0;
+    Serial.println();
+    Serial.println("Weather-------------------------");
+    Serial.print(" currentWindSpeed=");
+    Serial.print(currentWindSpeed);
+  
+    Serial.print(" \tcurrentWindGust=");
+    Serial.print (currentWindGust);
+  
+    Serial.print(" \tWind Direction=");
+    Serial.print(weatherStation.current_wind_direction());
+  
+   
+    Serial.print(" \t\tCumulative Rain = ");
+    Serial.println(rainTotal);
+    
+    Serial.println("Weather-------------------------");
+    
+    // now write the record to FRAM
+    
+    
+    char returnString[100];
+    returnString[0] = '\0';
+           
+    tmElements_t tm;
+    RTC.read(tm);
+
+    char floatString[15];
+
+    char timeNow[20];
+    timeNow[0] = '\0';
+    buildTimeString(timeNow, timeNow, tm);
+          
+    sprintf(returnString, "%s,", timeNow);
+           
+    floatString[0] = '\0';
+    dtostrf(currentWindSpeed,6,2,floatString);
+    strcat(returnString, floatString);
+    strcat(returnString, ",");
+ 
+    floatString[0] = '\0';
+    dtostrf(currentWindGust,6,2,floatString);
+    strcat(returnString, floatString);
+    strcat(returnString, ",");
+ 
+    floatString[0] = '\0';
+    dtostrf(weatherStation.current_wind_direction(),6,2,floatString);
+    strcat(returnString, floatString);
+    strcat(returnString, ",");
+ 
+    floatString[0] = '\0';
+    dtostrf(weatherStation.current_wind_direction_voltage(),6,2,floatString);
+    strcat(returnString, floatString);
+    strcat(returnString, ",");
+ 
+    floatString[0] = '\0';
+    dtostrf(rainTotal,6,2,floatString);
+    strcat(returnString, floatString);
+    strcat(returnString, ",");
+ 
+    floatString[0] = '\0';
+    dtostrf(UnregulatedWindVoltage,6,2,floatString);
+    strcat(returnString, floatString);
+    strcat(returnString, ",");
+ 
+    floatString[0] = '\0';
+    dtostrf(RegulatedWindVoltage,6,2,floatString);
+    strcat(returnString, floatString);
+    strcat(returnString, ",");
+ 
+    floatString[0] = '\0';
+    dtostrf(PiSolarVoltage,6,2,floatString);
+    strcat(returnString, floatString);
+    strcat(returnString, ",");
+    
+
+    floatString[0] = '\0';
+    dtostrf(SolarCellcurrent_mAx41,6,2,floatString);
+    strcat(returnString, floatString);
+    strcat(returnString, ",");
+    
+   
+    floatString[0] = '\0';
+    sprintf(floatString, "%i", solarWind);
+    strcat(returnString, floatString);
+    
+    
+    writeFramEntry(0,  returnString);
+    
+
+    displayFram();
+
+    
+    
+  }
+  
   if (nextState == currentState)
   {
     // sleep
     delay(1000);
-    sleep.pwrDownMode();
-    sleep.sleepDelay(sleepTime); 
+ //   sleep.pwrDownMode();
+ //   sleep.sleepDelay(sleepTime); 
+    delay(4000);   // since we aren't sleeping anymore
     setTime(readRTCreliably());
     
-     Serial.print("MLtimeStatus =");
-  Serial.println(timeStatus());
-  Serial.println("ML----internal arduino clock");
-  digitalClockDisplay();
-   Serial.println("ML----internal arduino clock");
+    Serial.print("MLtimeStatus =");
+    Serial.println(timeStatus());
+    Serial.println("ML----internal arduino clock");
+    digitalClockDisplay();
+    Serial.println("ML----internal arduino clock");
+   
+   
+    // update weather
+   currentWindSpeed = weatherStation.current_wind_speed()/1.6;
+
+ 
+ 
+  
   }
   currentState = nextState;
    
    
    // dead man switch  
    
+   // pat the watchdog
+    
+     
+    ResetWatchdog();	
+    
+    tmElements_t tm;
+    char myBootDate[25];
+    myBootDate[0] = '\0';
+    breakTime(lastBoot, tm);
+    buildTimeString(myBootDate, myBootDate, tm);
    
+    Serial.print("LB:");
+    Serial.print(myBootDate);
+    Serial.println();
   
    
    

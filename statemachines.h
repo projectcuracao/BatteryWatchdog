@@ -640,6 +640,50 @@ int state1(int state)
              
             }
          } // end of SL
+         
+         
+          if (strcmp(buffer2, "CLF")  == 0)   // Clear FRAM Log
+         {
+           initializeFRAMTable(104); // initialize with 104 size
+           
+         }  // end of CLF
+
+         
+         if (strcmp(buffer2, "SLF")  == 0)   // Send FraM Log
+         {
+  
+           char returnString[200];
+           
+           returnString[0] = '\0';
+          
+          
+       
+          int unreadCount;
+           // send count
+           unreadCount = returnFramUnreadCount();
+           sprintf(returnString, "%i\n", unreadCount);
+           Serial.print("Fram unreadCount=");
+           Serial.println(unreadCount);
+
+           Serial2.write(returnString);
+           // loop through log entries
+          
+           int index;
+           index = FramfetchNextUnreadEntry(); 
+           while (index != -1)
+           {
+             char buffer2[110];
+             buffer2[0] = '\0';
+             returnString[0] = '\0';
+
+             readFramItem (buffer2, buffer2, index, 1);
+   
+             sprintf(returnString, "%s\n", buffer2);
+             Serial2.write(returnString); 
+             index = FramfetchNextUnreadEntry();        
+             
+            }
+         } // end of SLF
 
          if (strcmp(buffer2, "GTH")  == 0)   // Get Outside Temp Humidity
          {
